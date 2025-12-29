@@ -1,0 +1,135 @@
+name: Build & Deploy Streamlit UI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'streamlit_app.py'
+      - 'Dockerfile.streamlit'
+      - '.streamlit/**'
+      - '.github/workflows/deploy-ui.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-3
+  ECR_REPOSITORY: streamlit-ui
+  APP_RUNNER_SERVICE: fraud-detection-ui
+
+jobs:
+  build-and-push-ui:
+    name: Build & Push Streamlit UI
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::073184925698:role/GitHubActionsRole
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build Docker image for UI
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f Dockerfile.streamlit -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "✅ Streamlit image built successfully"
+      
+      - name: Push UI image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "✅ UI image pushed to ECR"
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+  deploy-ui:
+    name: Deploy Streamlit UI to App Runner
+    runs-on: ubuntu-latest
+    needs: build-and-push-ui
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::073184925698:role/GitHubActionsRole
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Trigger App Runner deployment for UI
+        run: |
+          DEPLOYMENT=$(aws apprunner start-deployment \
+            --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:073184925698:service/${{ env.APP_RUNNER_SERVICE }} \
+            --region ${{ env.AWS_REGION }} \
+            --output json)
+          
+          echo "Deployment started:"
+          echo $DEPLOYMENT | jq '.'
+          
+          OPERATION_ID=$(echo $DEPLOYMENT | jq -r '.OperationId')
+          echo "OPERATION_ID=$OPERATION_ID" >> $GITHUB_ENV
+      
+      - name: Monitor UI deployment status
+        run: |
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:073184925698:service/${{ env.APP_RUNNER_SERVICE }} \
+              --region ${{ env.AWS_REGION }} \
+              --query 'Service.Status' \
+              --output text)
+            
+            echo "Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS - Status: $STATUS"
+            
+            if [ "$STATUS" = "RUNNING" ]; then
+              echo "✅ UI Deployment successful! Service is running"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT+1))
+            sleep 10
+          done
+      
+      - name: Verify UI deployment
+        run: |
+          SERVICE_URL=$(aws apprunner describe-service \
+            --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:073184925698:service/${{ env.APP_RUNNER_SERVICE }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Service.ServiceUrl' \
+            --output text)
+          
+          echo "Streamlit UI URL: https://$SERVICE_URL"
+          
+          # Wait for service to be responsive
+          for i in {1..10}; do
+            if curl -s https://$SERVICE_URL/_stcore/health | grep -q "ok"; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "Waiting for UI to respond... (attempt $i/10)"
+            sleep 5
+          done
+          
+          echo "⚠️ Service not responding yet, but deployment triggered"

@@ -201,3 +201,112 @@ resource "aws_iam_role_policy" "github_apprunner" {
 
 # Get AWS account ID
 data "aws_caller_identity" "current" {}
+# ========================================
+# Streamlit UI Service
+# ========================================
+
+# ECR Repository for Streamlit UI
+resource "aws_ecr_repository" "streamlit_ui" {
+  name                 = "${var.app_name}-ui"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "${var.app_name}-ui-ecr"
+  }
+}
+
+# ECR Lifecycle Policy for Streamlit
+resource "aws_ecr_lifecycle_policy" "streamlit_ui" {
+  repository = aws_ecr_repository.streamlit_ui.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus     = "any"
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+# App Runner Service for Streamlit UI
+resource "aws_apprunner_service" "streamlit_ui" {
+  service_name = "${var.app_name}-ui"
+
+  source_configuration {
+    image_repository {
+      image_identifier      = "${aws_ecr_repository.streamlit_ui.repository_url}:latest"
+      image_repository_type = "ECR"
+
+      image_configuration {
+        port = "8501"
+        runtime_environment_variables = {
+          API_URL = "https://${aws_apprunner_service.fraud_detection.service_url}"
+        }
+      }
+    }
+
+    auto_deployments_enabled = true
+
+    authentication_configuration {
+      access_role_arn = aws_iam_role.apprunner_ecr_access.arn
+    }
+  }
+
+  instance_configuration {
+    cpu    = var.instance_cpu
+    memory = var.instance_memory
+  }
+
+  health_check_configuration {
+    protocol            = "HTTP"
+    path                = "/_stcore/health"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 1
+    unhealthy_threshold = 3
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.apprunner_ecr]
+
+  tags = {
+    Name = "${var.app_name}-ui"
+  }
+}
+
+# GitHub Actions Policy - ECR Push for UI
+resource "aws_iam_role_policy" "github_ecr_ui" {
+  name = "${var.app_name}-github-ecr-ui-policy"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = aws_ecr_repository.streamlit_ui.arn
+      }
+    ]
+  })
+}

@@ -1,26 +1,42 @@
 output "ecr_repository_url" {
-  description = "ECR repository URL"
+  description = "ECR repository URL for API"
   value       = aws_ecr_repository.fraud_detection.repository_url
 }
 
 output "ecr_repository_arn" {
-  description = "ECR repository ARN"
+  description = "ECR repository ARN for API"
   value       = aws_ecr_repository.fraud_detection.arn
 }
 
 output "apprunner_service_arn" {
-  description = "App Runner service ARN"
+  description = "App Runner service ARN for API"
   value       = aws_apprunner_service.fraud_detection.arn
 }
 
 output "apprunner_service_url" {
-  description = "App Runner service URL"
+  description = "App Runner service URL for API"
   value       = "https://${aws_apprunner_service.fraud_detection.service_url}"
 }
 
 output "apprunner_service_status" {
   description = "App Runner service status"
   value       = aws_apprunner_service.fraud_detection.status
+}
+
+# Streamlit UI Outputs
+output "streamlit_ecr_repository_url" {
+  description = "ECR repository URL for Streamlit UI"
+  value       = aws_ecr_repository.streamlit_ui.repository_url
+}
+
+output "streamlit_apprunner_service_url" {
+  description = "App Runner service URL for Streamlit UI"
+  value       = "https://${aws_apprunner_service.streamlit_ui.service_url}"
+}
+
+output "streamlit_apprunner_service_status" {
+  description = "Streamlit App Runner service status"
+  value       = aws_apprunner_service.streamlit_ui.status
 }
 
 output "github_actions_role_arn" {
