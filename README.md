@@ -2,6 +2,7 @@
 
 A production-ready machine learning project for fraud detection with API deployment capabilities.
 
+pour tester l'api suivez le fichier suivant : TESTER_API_TERMINAL.md
 ## Project Structure
 
 ```
