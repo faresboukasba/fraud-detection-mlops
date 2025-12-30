@@ -92,6 +92,7 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/ui", response_class=HTMLResponse)
 async def root():
     """
     Serve the Fraud Detection UI
