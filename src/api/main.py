@@ -10,6 +10,8 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -87,6 +89,52 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """
+    Serve the Fraud Detection UI
+    """
+    try:
+        # Try to find index.html in project root
+        html_path = Path(__file__).parent.parent.parent / "index.html"
+        if html_path.exists():
+            with open(html_path, 'r') as f:
+                return f.read()
+        else:
+            # Fallback: return simple HTML
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Fraud Detection API</title>
+                <style>
+                    body { font-family: Arial; margin: 50px; text-align: center; }
+                    h1 { color: #FF4B4B; }
+                    .endpoint { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <h1>🔍 Fraud Detection API</h1>
+                <p>API is running!</p>
+                <div class="endpoint">
+                    <strong>GET /health</strong> - Health check
+                </div>
+                <div class="endpoint">
+                    <strong>POST /predict</strong> - Single prediction
+                </div>
+                <div class="endpoint">
+                    <strong>POST /predict-batch</strong> - Batch predictions
+                </div>
+                <div class="endpoint">
+                    <strong>GET /docs</strong> - API documentation
+                </div>
+            </body>
+            </html>
+            """
+    except Exception as e:
+        return f"<h1>Error</h1><p>{str(e)}</p>"
 
 
 @app.get("/health", response_model=HealthResponse)
