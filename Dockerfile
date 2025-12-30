@@ -18,6 +18,7 @@ COPY --from=builder /root/.local /root/.local
 # Copy application code
 COPY src/ /app/src/
 COPY models/ /app/models/
+COPY index.html /app/
 
 # Set environment variables
 ENV PATH=/root/.local/bin:$PATH \
