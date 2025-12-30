@@ -1,13 +1,17 @@
-name: Build & Deploy Streamlit UI
+name: Build & Deploy Streamlit UI - DEPRECATED
+
+# DEPRECATED: Using HTML UI served directly from API instead
+# on:
+#   push:
+#     branches: [main, master]
+#     paths:
+#       - 'streamlit_app.py'
+#       - 'Dockerfile.streamlit'
+#       - '.streamlit/**'
+#       - '.github/workflows/deploy-ui.yml'
+#   workflow_dispatch:
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'streamlit_app.py'
-      - 'Dockerfile.streamlit'
-      - '.streamlit/**'
-      - '.github/workflows/deploy-ui.yml'
   workflow_dispatch:
 
 env:
