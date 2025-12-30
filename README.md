@@ -180,14 +180,7 @@ pylint src/
 mypy src/
 ```
 
-## Performance Metrics
 
-The ensemble model combines Random Forest and Gradient Boosting classifiers for robust fraud detection:
-
-- **ROC-AUC**: ~0.95+
-- **Accuracy**: ~99%
-- **Latency**: <100ms per prediction
-- **Throughput**: 100+ predictions/second
 
 ## Contributing
 
