@@ -143,7 +143,7 @@ The project includes GitHub Actions workflows for automated testing and deployme
 Create a `.env` file with:
 
 ```env
-AWS_REGION=us-east-1
+AWS_REGION= eu-west-3
 AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 ECR_REGISTRY=your-registry
@@ -195,10 +195,5 @@ The ensemble model combines Random Forest and Gradient Boosting classifiers for 
 2. Make changes and run tests
 3. Submit a pull request
 
-## License
 
-MIT License
 
-## Support
-
-For issues and questions, please open a GitHub issue.
